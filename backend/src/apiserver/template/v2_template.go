@@ -57,7 +57,15 @@ func (t *V2Spec) ScheduledWorkflow(modelJob *model.Job) (*scheduledworkflow.Sche
 	}
 	job.RuntimeConfig = jobRuntimeConfig
 
-	obj, err := argocompiler.Compile(job, nil)
+	// Pick out Kubernetes platform configs
+	var kubernetesSpec *pipelinespec.SinglePlatformSpec
+	if t.platformSpec != nil {
+		if _, ok := t.platformSpec.Platforms["kubernetes"]; ok {
+			kubernetesSpec = t.platformSpec.Platforms["kubernetes"]
+		}
+	}
+
+	obj, err := argocompiler.Compile(job, kubernetesSpec, nil)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to compile job")
 	}
@@ -244,7 +252,16 @@ func (t *V2Spec) RunWorkflow(modelRun *model.Run, options RunWorkflowOptions) (u
 		return nil, util.Wrap(err, "Failed to convert to PipelineJob RuntimeConfig")
 	}
 	job.RuntimeConfig = jobRuntimeConfig
-	obj, err := argocompiler.Compile(job, nil)
+
+	// Pick out Kubernetes platform configs
+	var kubernetesSpec *pipelinespec.SinglePlatformSpec
+	if t.platformSpec != nil {
+		if _, ok := t.platformSpec.Platforms["kubernetes"]; ok {
+			kubernetesSpec = t.platformSpec.Platforms["kubernetes"]
+		}
+	}
+
+	obj, err := argocompiler.Compile(job, kubernetesSpec, nil)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to compile job")
 	}

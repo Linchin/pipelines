@@ -9,6 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/v2/compiler"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type testVisitor struct {
@@ -28,6 +29,10 @@ func (v *testVisitor) Resolver(name string, component *pipelinespec.ComponentSpe
 	return nil
 }
 func (v *testVisitor) DAG(name string, component *pipelinespec.ComponentSpec, dag *pipelinespec.DagSpec) error {
+	v.visited = append(v.visited, fmt.Sprintf("DAG(name=%q)", name))
+	return nil
+}
+func (v *testVisitor) AddKubernetesSpec(name string, kubernetesSpec *structpb.Struct) error {
 	v.visited = append(v.visited, fmt.Sprintf("DAG(name=%q)", name))
 	return nil
 }
@@ -56,7 +61,7 @@ func Test_AcceptTestVisitor(t *testing.T) {
 		t.Run(fmt.Sprintf("%q", tt.specPath), func(t *testing.T) {
 			job := load(t, tt.specPath)
 			v := &testVisitor{visited: make([]string, 0)}
-			err := compiler.Accept(job, v)
+			err := compiler.Accept(job, nil, v)
 			if err != nil {
 				t.Fatal(err)
 			}

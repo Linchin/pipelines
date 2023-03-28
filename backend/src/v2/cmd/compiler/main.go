@@ -65,7 +65,7 @@ func main() {
 }
 
 func compile(job *pipelinespec.PipelineJob) error {
-	wf, err := argocompiler.Compile(job, &argocompiler.Options{
+	wf, err := argocompiler.Compile(job, nil, &argocompiler.Options{
 		DriverImage:   *driver,
 		LauncherImage: *launcher,
 		PipelineRoot:  *pipelineRoot,

@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      https://www.apache.org/licenses/LICENSE-2.0
+//	https://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/structpb"
+	k8score "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -539,6 +540,122 @@ func Test_initPodSpecPatch_resourceRequests(t *testing.T) {
 			if tt.notWant != "" {
 				assert.NotContains(t, string(podSpecString), tt.notWant)
 			}
+		})
+	}
+}
+
+func Test_extendPodSpecPatch_Secret(t *testing.T) {
+	tests := []struct {
+		name       string
+		k8sExecCfg *kubernetesplatform.KubernetesExecutorConfig
+		podSpec    *k8score.PodSpec
+		expected   *k8score.PodSpec
+	}{
+		{
+			"Valid - secret as volume",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				SecretAsVolume: []*kubernetesplatform.SecretAsVolume{
+					{
+						SecretName: "secret1",
+						MountPath:  "/data/path",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+						VolumeMounts: []k8score.VolumeMount{
+							{
+								Name:      "secret1",
+								MountPath: "/data/path",
+							},
+						},
+					},
+				},
+				Volumes: []k8score.Volume{
+					{
+						Name: "secret1",
+						VolumeSource: k8score.VolumeSource{
+							Secret: &k8score.SecretVolumeSource{SecretName: "secret1"},
+						},
+					},
+				},
+			},
+		},
+		{
+			"Valid - secret not specified",
+			&kubernetesplatform.KubernetesExecutorConfig{},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+			},
+		},
+		{
+			"Valid - secret as env",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				SecretAsEnv: []*kubernetesplatform.SecretAsEnv{
+					{
+						SecretName: "my-secret",
+						KeyToEnv: []*kubernetesplatform.SecretAsEnv_SecretKeyToEnvMap{
+							{
+								SecretKey: "password",
+								EnvVar:    "SECRET_VAR",
+							},
+						},
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+						Env: []k8score.EnvVar{
+							{
+								Name: "SECRET_VAR",
+								ValueFrom: &k8score.EnvVarSource{
+									SecretKeyRef: &k8score.SecretKeySelector{
+										k8score.LocalObjectReference{Name: "my-secret"},
+										"password",
+										nil,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := extendPodSpecPatch(tt.podSpec, tt.k8sExecCfg, nil, nil)
+			assert.Nil(t, err)
+			assert.Equal(t, tt.expected, tt.podSpec)
 		})
 	}
 }

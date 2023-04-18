@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      https://www.apache.org/licenses/LICENSE-2.0
+//	https://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -510,6 +510,39 @@ func extendPodSpecPatch(
 	// TODO(gkcalat): add nodeSelector once it is added to platform-specific features in PipelineSpec
 	podSpec.Volumes = volumes
 	podSpec.Containers[0].VolumeMounts = volumeMounts
+
+	// Get secret mount information
+	for _, secretAsVolume := range kubernetesConfig.GetSecretAsVolume() {
+		secretVolume := k8score.Volume{
+			Name: secretAsVolume.GetSecretName(),
+			VolumeSource: k8score.VolumeSource{
+				Secret: &k8score.SecretVolumeSource{SecretName: secretAsVolume.GetSecretName()},
+			},
+		}
+		secretVolumeMount := k8score.VolumeMount{
+			Name:      secretAsVolume.GetSecretName(),
+			MountPath: secretAsVolume.GetMountPath(),
+		}
+		podSpec.Volumes = append(podSpec.Volumes, secretVolume)
+		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, secretVolumeMount)
+	}
+
+	// Get secret env information
+	for _, secretAsEnv := range kubernetesConfig.GetSecretAsEnv() {
+		for _, keyToEnv := range secretAsEnv.GetKeyToEnv() {
+			secretEnvVar := k8score.EnvVar{
+				Name: keyToEnv.GetEnvVar(),
+				ValueFrom: &k8score.EnvVarSource{
+					SecretKeyRef: &k8score.SecretKeySelector{
+						Key: keyToEnv.GetSecretKey(),
+					},
+				},
+			}
+			secretEnvVar.ValueFrom.SecretKeyRef.LocalObjectReference.Name = secretAsEnv.GetSecretName()
+			podSpec.Containers[0].Env = append(podSpec.Containers[0].Env, secretEnvVar)
+		}
+	}
+
 	return nil
 }
 

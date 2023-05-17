@@ -142,7 +142,7 @@ func (s *JobServer) GetJob(ctx context.Context, request *apiv1beta1.GetJobReques
 	recurringRun, err := s.getJob(ctx, request.GetId())
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to fetch a v1beta1 recurring run")
-	}
+	}}
 
 	apiJob := toApiJobV1(recurringRun)
 	if apiJob == nil {
